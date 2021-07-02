@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nanabush Yields</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
+  <script type="module" src="./modules/common.js"></script>
+  <style>
+    body { 
+      min-width: 1024px
+    }
+    canvas {
+      -moz-user-select: none;
+      -webkit-user-select: none;
+      -ms-user-select: none;
+    }
+
+    .grid-container {
+      display: inline-grid; 
+      grid-template-columns: repeat(auto-fit, minmax(512px, 1fr)); 
+      grid-auto-flow: row dense;
+      padding: 1px;
+      width: 100%;
+    }
+
+    .grid-item {
+      background-color: rgba(255, 255, 255, 0.8);
+      border: 1px solid rgba(0, 0, 0, 0.8);
+      padding: 10px;
+      text-align: center;
+    }
+
+    .wide {
+      grid-column: auto / span 2;
+      grid-row: auto / span;
+    }
+  </style>
+</head>
+
+<body> 
+  <h1> Nanabush Yields </h1> 
+  <div id="date_range"> </div> 
+  <div id="trim_text"> Show top fruits </div>
+  <input 
+    type="range" 
+    min="1" 
+    max="20" 
+    value="20" 
+    step="1" 
+    class="slider" 
+    id="trimmer">
+  <div id='outer_grid_holder' class="grid-container">
+  </div>
+
+  <div id="legend"> </div>
+  <div id="select_actions"> </div>
+  <a href="#">Goto top</a>
+ 
+  
+
+  <h4>Raw Data</h4>
+  <div id="json" style="height:300;width:800px;border:2px solid #ccc;"></div>
+  <h4>JSON Processed</h4>
+  <div id="text" style="height:300;width:800px;border:2px solid #ccc;"></div>
+
+
+  <script type="module">
+    import {
+      getTextAndUpdate, setInnerHtml,
+      parse_csv
+    } from './modules/common.js';
+
+    function createCanvasFor(data, tag, stacked) {
+      var id = (stacked ? 'canvas_stack_' : 'canvas_') + tag;
+      var title = (stacked ? 'Combined Totals: ' : '') + tag;
+      var ctx = document.getElementById(id).getContext('2d');
+      var bar = new Chart(ctx, {
+        type: 'bar',
+        data: data,
+        options: {
+          scales: {
+            xAxes: [{
+              stacked: stacked
+            }],
+            yAxes: [{
+              stacked: stacked
+            }]
+          },
+          responsive: true,
+          legend: {
+            position: 'top',
+          },
+          title: {
+            display: true,
+            text: title
+          }
+        }
+      });
+      return bar
+    }
+
+    var globalBarChartData = new Object();
+    function update_graph(text) {
+      setInnerHtml("json", '<pre>' + text + '</pre>');
+      var jsondata = parse_csv(text);
+      setInnerHtml("text", '<pre>' + JSON.stringify(jsondata, null, 4) + '</pre>');
+      var date_range = "<h4> " + (jsondata.data[0].Date) + " - " + (jsondata.data[jsondata.data.length - 1].Date) + "</h4>";
+      setInnerHtml("date_range", date_range);
+ 
+      
+      jsondata.selectedActions = {}  
+      var selected = ' <fieldset> <legend>Select Actions to Display</legend>'
+      jsondata.action_names.forEach(function (label) {
+        jsondata.selectedActions[label]=true
+        selected +=
+          '<input type="checkbox" name="action" checked="true" id="select_label_' + label + '" value="' + label + '"/><label for="track">' + label + '</label><br />'
+      })
+      selected += '</fieldset>'
+      setInnerHtml("select_actions", selected);
+      var trimmer = document.getElementById("trimmer");
+      jsondata.action_names.forEach(function (label) {
+        var input = document.getElementById('select_label_' + label); 
+        input.oninput = function () { 
+          jsondata.selectedActions[label] = !jsondata.selectedActions[label]
+          trimmer.value = trimmer.max  
+          jsondata.labels.forEach(function (l) {
+            show_graphs(jsondata, l);
+          })
+        }
+      })
+ 
+
+      var canvas_grid = ''
+      jsondata.labels.forEach(function (label) {
+        canvas_grid += '<div class="grid-item  wide"><canvas class="grid-item " id="canvas_' + label + '" ></canvas></div>';
+      //  canvas_grid += '<div class="grid-item  wide"><canvas class="grid-item " id="canvas_stack_' + label + '" ></canvas></div>';
+      })
+      setInnerHtml("outer_grid_holder", canvas_grid);
+      globalBarChartData.bars = [];
+      jsondata.labels.forEach(function (label) {
+        globalBarChartData[label] = { labels: [label], datasets: [] };
+        globalBarChartData.bars.push(createCanvasFor(globalBarChartData[label], label, false))
+     //   globalBarChartData.bars.push(createCanvasFor(globalBarChartData[label], label, true))
+      })
+      jsondata.labels.forEach(function (label) {
+        show_graphs(jsondata, label);
+      })
+      var trimmer = document.getElementById("trimmer");
+      trimmer.oninput = function () {  
+        showTrimText (jsondata) 
+        jsondata.labels.forEach(function (l) {
+            show_graphs(jsondata, l);
+          }) 
+      }  
+        trimmer.onchange = trimmer.oninput;
+    }
+    var trimmer = document.getElementById("trimmer");
+
+    function showTrimText (json) { 
+      var total = Object.keys(json.selectedActions).length;
+      var totalEnabled = (Object.values(json.selectedActions).filter(function (enabled) { return enabled;})).length;
+       
+      if (trimmer.max != totalEnabled) { 
+        trimmer.max= trimmer.value = totalEnabled; 
+      }
+
+      var selectedText;
+      if (totalEnabled == total) { 
+         selectedText = total + ' actions (<a href="#legend">Select Subset</a>)';
+      } else { 
+         selectedText = totalEnabled  + ' (<a href="#legend">subset selected from ' + total + ' actions </a>)';
+      }
+      setInnerHtml("trim_text", "Showing top " + trimmer.value + ' of ' + selectedText );
+    }
+    function show_graphs(json, columnToShow) { 
+      var map = {}; 
+
+      showTrimText (json) 
+      
+      var count = 0;
+      var sortMapIdx=0;
+      json.action_names.forEach (function (name)  { 
+          if (json.selectedActions[name] && count < trimmer.value) { 
+            count++;
+           // console.log ("selected ", count, " of ", trimmer.value)
+          //console.log ("index of  ", name, " is ", json.sortMap[name])
+            if (sortMapIdx < json.sortMap[name]) { 
+              sortMapIdx =  json.sortMap[name];
+              //console.log ("sortmapindex updated to  ", sortMapIdx)
+            }
+          }
+      }); 
+      var namesToShow = json.action_names.filter(function (name) {
+            return json.selectedActions[name]
+            && json.sortMap[name] <= sortMapIdx
+      });
+      var dataToShow = json.data.filter(function (e) {
+            return json.selectedActions[e.Name]
+            && json.sortMap[e.Name] <= sortMapIdx
+      });
+ 
+      var cindex = 0;
+      var colours={}
+      json.action_names.forEach(function (name) {
+        colours[name] = json.graph_colours[cindex++ % json.graph_colours.length]
+      })
+      namesToShow.forEach(function (name) {
+        map[name] = {};
+        json.action_dates.forEach(function (date) { map[name][date] = 0; })
+      })
+      dataToShow.forEach(function (element) {
+        map[element.Name][element.Date] = element[columnToShow]
+      })
+ 
+      var barChartData = globalBarChartData[columnToShow];
+      barChartData.labels = json.action_dates; 
+        console.log ("labels "); 
+        console.log (json.action_dates); 
+      barChartData.datasets.length=0;
+      namesToShow.forEach(function (name) {
+        var colour = colours[name] 
+        let data=Object.values(map[name])
+        console.log ("PUSHING "); 
+        console.log (data)
+        console.log (Object.keys(map[name]))
+        barChartData.datasets.push({
+          label: name,
+          backgroundColor: Chart.helpers.color(colour).alpha(0.7).rgbString(),
+          borderColor: colour,
+          borderWidth: 1,
+          data: data
+        })
+      })
+      globalBarChartData.bars.forEach(function (bar) {
+        bar.update();
+      })
+       
+    }
+
+    window.onload = function () {
+      getTextAndUpdate('data.csv', update_graph, function () {
+        alert("error happened fetching data")
+      });
+    };
+
+
+  </script>
+</body>
+
+</html>
