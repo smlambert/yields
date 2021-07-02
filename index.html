@@ -74,7 +74,7 @@
 
     function createCanvasFor(data, tag, stacked) {
       var id = (stacked ? 'canvas_stack_' : 'canvas_') + tag;
-      var title = (stacked ? 'Combined Actions: ' : 'Individual Actions: ') + tag;
+      var title = (stacked ? 'Combined Totals: ' : '') + tag;
       var ctx = document.getElementById(id).getContext('2d');
       var bar = new Chart(ctx, {
         type: 'bar',
@@ -135,14 +135,14 @@
       var canvas_grid = ''
       jsondata.labels.forEach(function (label) {
         canvas_grid += '<div class="grid-item  wide"><canvas class="grid-item " id="canvas_' + label + '" ></canvas></div>';
-        canvas_grid += '<div class="grid-item  wide"><canvas class="grid-item " id="canvas_stack_' + label + '" ></canvas></div>';
+      //  canvas_grid += '<div class="grid-item  wide"><canvas class="grid-item " id="canvas_stack_' + label + '" ></canvas></div>';
       })
       setInnerHtml("outer_grid_holder", canvas_grid);
       globalBarChartData.bars = [];
       jsondata.labels.forEach(function (label) {
         globalBarChartData[label] = { labels: [label], datasets: [] };
         globalBarChartData.bars.push(createCanvasFor(globalBarChartData[label], label, false))
-        globalBarChartData.bars.push(createCanvasFor(globalBarChartData[label], label, true))
+     //   globalBarChartData.bars.push(createCanvasFor(globalBarChartData[label], label, true))
       })
       jsondata.labels.forEach(function (label) {
         show_graphs(jsondata, label);
@@ -202,11 +202,12 @@
       });
  
       var cindex = 0;
+      var colours={}
       json.action_names.forEach(function (name) {
-        map[name] = {};
-        map[name].colour = json.graph_colours[cindex++ % json.graph_colours.length]
+        colours[name] = json.graph_colours[cindex++ % json.graph_colours.length]
       })
       namesToShow.forEach(function (name) {
+        map[name] = {};
         json.action_dates.forEach(function (date) { map[name][date] = 0; })
       })
       dataToShow.forEach(function (element) {
@@ -215,15 +216,21 @@
  
       var barChartData = globalBarChartData[columnToShow];
       barChartData.labels = json.action_dates; 
+        console.log ("labels "); 
+        console.log (json.action_dates); 
       barChartData.datasets.length=0;
       namesToShow.forEach(function (name) {
-        var colour = map[name].colour 
+        var colour = colours[name] 
+        let data=Object.values(map[name])
+        console.log ("PUSHING "); 
+        console.log (data)
+        console.log (Object.keys(map[name]))
         barChartData.datasets.push({
           label: name,
           backgroundColor: Chart.helpers.color(colour).alpha(0.7).rgbString(),
           borderColor: colour,
           borderWidth: 1,
-          data: Object.values(map[name])
+          data: data
         })
       })
       globalBarChartData.bars.forEach(function (bar) {
