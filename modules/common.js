@@ -28,49 +28,23 @@ function convertKnownField(fieldname, value) {
     return new Date(simple).toLocaleDateString('en-us');
   }
   if (fieldname == 'Name') {
-    const trim_end_slash = trimQuotes(value).replace(/^(.*)\/$/, '$1')
-    const names = trim_end_slash.split("/");
-    const simple_name = names[names.length-1];  // rm redhat-actions prefix   
-    return simple_name;
+    return trimQuotes(value).replace(/^(.*)\/$/, '$1')  
   }
   return parseInt(value);
 }
 
 const action_name_map = { 
   "serviceberries": "saskatoons"
-};
-
-const noMerge = window.location.href.includes("nomerge");
-function nameAlias(name) {
-  if (noMerge) return name;
+}; 
+function nameAlias(name) { 
   var mergedName = action_name_map[name];
   if (mergedName) return mergedName;
   return name;
 };
 
-function generateColours() {
-  var c = [];
-  const red = [255, 100];
-  const green = [100, 0, 200];
-  const blue = [132, 255, 200, 0];
-
-  // for (var r = 255; r > 0; r -= 100)
-  // for (var g = 255; g > 0; g -= 100)
-  //   for (var b = 255; b > 0; b -= 100)
-  for (const r of red)
-    for (const b of blue)
-      for (const g of green) {
-        if (r != g && r != b) {
-          var cc = 'rgb(' + r + ',' + g + ',' + b + ')';
-          c.push(cc);
-        }
-      }
-  return c;
-}
 function ActionsData() {
   this.labels = [];
-  this.data = [];
-  this.graph_coloursx = generateColours();
+  this.data = []; 
   this.graph_colours = [
     'rgb(255, 99, 132)',
     'rgb(255, 150, 64)',
@@ -91,8 +65,7 @@ function ActionsData() {
     'rgb(0, 200, 99)',
     'rgb(0, 200, 0)' 
 
-  ];
-  this.tsuffix = noMerge ? '(unmerged action names)' : "";
+  ]; 
 }
 
 function mergeStats(json, keep, tomerge) {
@@ -104,8 +77,7 @@ function mergeStats(json, keep, tomerge) {
   keep.merged = tomerge;
 }
 
-function merge_aliased_stats(json) {
-  if (noMerge) return;
+function merge_aliased_stats(json) { 
   json.data.forEach(function (e) {
     e.originalName = e.Name;
     e.mergedName = nameAlias(e.Name);
@@ -131,16 +103,18 @@ function merge_aliased_stats(json) {
 function computeSortMap(json) { 
   var findAllMax = {};
   json.data.forEach(function (e) {
-    var current = findAllMax["Name"];
-    if (current == undefined) findAllMax["Name"]=e.Total; 
-    if (findAllMax["Name"]<e.Total) findAllMax["Name"]=e.Total  
+    var current = findAllMax[e.Name];
+    if (current == undefined) findAllMax[e.Name]=e.Total; 
+    if (findAllMax[e.Name]<e.Total) findAllMax[e.Name]=e.Total  
   }) 
   var s=[];
   json.action_names.forEach(function (name) {
     s.push ({ "Name": name, "Total": findAllMax[name]})
   })    
-
+ 
   s.sort(function (a, b) { if (a.Total > b.Total) return -1; else return 1; });
+   
+
   var idx = 0;
   var sortMap = {}
   s.forEach(function (e) {
@@ -150,7 +124,7 @@ function computeSortMap(json) {
   json.data.forEach(function (e) {
     e.sortIndex = sortMap[e.Name]
   })
-  json.sortMap = sortMap;
+  json.sortMap = sortMap; 
 }
 
 function parse_csv(text) {
@@ -158,16 +132,19 @@ function parse_csv(text) {
   // split into lines, trim blank lines
   var lines = text.split(/\r\n|\n/);
   lines = lines.filter(function (x) { return x.trim().length > 0 });
-  var labels = lines[0].split(',');
+  var labels = lines[0].split(','); 
+  labels = labels.concat (['Total'])  
   actionData.labels = labels.filter(function (e) { return e != 'Name' && e != 'Date' })
   for (var i = 1; i < lines.length; i++) {
     var data = lines[i].split(',');
-    var r = {};
-    for (var j = 0; j < labels.length; j++) {
+    var r = {};     
+    r['Total'] = data.slice(2).reduce((a, b) => parseInt(a) + parseInt(b), 0) 
+    for (var j = 0; j < labels.length-1; j++) {
       r[labels[j]] = convertKnownField(labels[j], data[j])
     }
     actionData.data.push(r)
-  }
+  } 
+
   merge_aliased_stats(actionData)
   compute_derived_stats(actionData)
 

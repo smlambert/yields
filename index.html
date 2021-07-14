@@ -111,7 +111,7 @@
  
       
       jsondata.selectedActions = {}  
-      var selected = ' <fieldset> <legend>Select Actions to Display</legend>'
+      var selected = ' <fieldset> <legend>Select Harvest to Display</legend>'
       jsondata.action_names.forEach(function (label) {
         jsondata.selectedActions[label]=true
         selected +=
@@ -168,9 +168,9 @@
 
       var selectedText;
       if (totalEnabled == total) { 
-         selectedText = total + ' actions (<a href="#legend">Select Subset</a>)';
+         selectedText = total + ' harvest (<a href="#legend">Select Subset</a>)';
       } else { 
-         selectedText = totalEnabled  + ' (<a href="#legend">subset selected from ' + total + ' actions </a>)';
+         selectedText = totalEnabled  + ' (<a href="#legend">subset selected from ' + total + ' harvest </a>)';
       }
       setInnerHtml("trim_text", "Showing top " + trimmer.value + ' of ' + selectedText );
     }
@@ -178,20 +178,14 @@
       var map = {}; 
 
       showTrimText (json) 
-      
-      var count = 0;
-      var sortMapIdx=0;
+       
+   
+      var sortMapIdx=trimmer.value-1; // show all  
       json.action_names.forEach (function (name)  { 
-          if (json.selectedActions[name] && count < trimmer.value) { 
-            count++;
-           // console.log ("selected ", count, " of ", trimmer.value)
-          //console.log ("index of  ", name, " is ", json.sortMap[name])
-            if (sortMapIdx < json.sortMap[name]) { 
-              sortMapIdx =  json.sortMap[name];
-              //console.log ("sortmapindex updated to  ", sortMapIdx)
-            }
-          }
-      }); 
+        if (!json.selectedActions[name]) {  
+            sortMapIdx++
+        } 
+      })  
       var namesToShow = json.action_names.filter(function (name) {
             return json.selectedActions[name]
             && json.sortMap[name] <= sortMapIdx
@@ -215,16 +209,11 @@
       })
  
       var barChartData = globalBarChartData[columnToShow];
-      barChartData.labels = json.action_dates; 
-        console.log ("labels "); 
-        console.log (json.action_dates); 
+      barChartData.labels = json.action_dates;  
       barChartData.datasets.length=0;
       namesToShow.forEach(function (name) {
         var colour = colours[name] 
-        let data=Object.values(map[name])
-        console.log ("PUSHING "); 
-        console.log (data)
-        console.log (Object.keys(map[name]))
+        let data=Object.values(map[name]) 
         barChartData.datasets.push({
           label: name,
           backgroundColor: Chart.helpers.color(colour).alpha(0.7).rgbString(),
